@@ -81,7 +81,7 @@ docker run --rm --gpus all ubuntu nvidia-smi    # should show a table with your 
 
 ```bash
 mkdir -p ~/dev/cora && cd ~/dev/cora
-# git clone <cora_ws repo> cora_ws    ← not in git yet; for now the folder is copied by hand
+git clone git@github.com:C-O-R-A/cora_docker.git cora_ws
 ```
 
 ### Step 5: Download the repos and switch to `fix/package-deps`
@@ -99,9 +99,6 @@ vcs import src < desktop.repos
 git -C src/cora_common switch fix/package-deps
 git -C src/cora_desktop switch fix/package-deps
 ```
-
-> The branch must be pushed to the C-O-R-A repos on GitHub first. Until then it
-> only exists on the laptop where the fixes were made.
 
 ### Step 6: Run the setup script
 
@@ -429,9 +426,9 @@ And back: `docker stop ros-jazzy-gpu`, then `docker compose up -d`.
 
 `cora_common` and `cora_desktop` are **separate GitHub repos**
 (`C-O-R-A/cora_common`, `C-O-R-A/cora_desktop`). To make this setup work, both
-needed changes. They are on a branch `fix/package-deps` in each repo, but are
-**not committed or pushed yet** (only uncommitted changes on your laptop). Each
-repo needs its own commit, push and pull request.
+needed changes. They are pushed to a branch `fix/package-deps` in each repo
+(`cora_common` commit `e9bbdd4`, `cora_desktop` commit `20c3c01`), not merged
+into `main` yet.
 
 ### cora_common (based on commit `161ee79`)
 
@@ -458,17 +455,13 @@ running the code, not real changes. Don't commit them (see the open issues below
 | `cora_gazebo/package.xml` | Added `ament_index_python`, `launch`, `launch_ros`, `xacro`, `robot_state_publisher`, `moveit_configs_utils`, `ros_gz_sim`, `ros_gz_bridge`, `gz_ros2_control`, and the workspace packages `cora_bringup`, `cora_description`, `cora_gripper_1_description`, `cora_moveit_config` | Everything `launch/gazebo.launch.py` uses. The file listed no runtime dependencies at all, so rosdep installed none of the Gazebo integration. |
 | `cora_gazebo/launch/gazebo.launch.py` | The `gazebo_world` argument now defaults to `cora_gazebo/worlds/main_world.sdf` instead of the string `"None"` | With `"None"` you had to pass `gazebo_world:=...` every time; now `ros2 launch cora_gazebo gazebo.launch.py` works on its own. |
 
-### After pushing
+### Next steps
 
-The order matters, because `desktop.repos` pins `cora_common` to an exact commit:
-
-1. In `src/cora_common`: commit the `package.xml` changes (not the `.pyc` files),
-   push `fix/package-deps`, open a PR to `main`.
-2. In `src/cora_desktop`: commit both files, push, open a PR to `main`.
-3. In `desktop.repos`: change the `cora_common` `version:` from `161ee79...` to
-   the new commit (or to `main` once the PR is merged). `cora_desktop` follows
-   `main`, so it picks up its fix once merged.
-4. Optionally update `cora_desktop`'s `cora_common` submodule to the same
+1. Open a pull request from `fix/package-deps` to `main` in both repos.
+2. In `desktop.repos`: point `cora_common` and `cora_desktop` to
+   `fix/package-deps` (or to `main` once merged). Then Part 1, step 5 no
+   longer needs the manual `git switch`.
+3. Optionally update `cora_desktop`'s `cora_common` submodule to the same
    commit, so the two stay in sync.
 
 ## Open issues (still to fix)
@@ -493,27 +486,24 @@ Ordered by importance.
    (Or pin a CoDI version that matches the flat format; then also update the
    `CODI_REF` comment in the `Dockerfile`, which claims `b475de3` matches
    `cora_common 161ee79`.)
-2. **The fixes above aren't committed or pushed.** Until they are and
-   `desktop.repos` points to them, a fresh `./setup.sh` downloads the unfixed
-   versions and the image build fails at `rosdep install`.
-3. **This folder (`cora_ws`) isn't in git yet**, so Part 1, step 4 can't be
-   followed from scratch by teammates.
-4. **`desktop.repos` and `robot.repos` pin different `cora_common` commits**
+2. **The fixes above aren't merged and `desktop.repos` doesn't point to them.**
+   That's why Part 1, step 5 switches to `fix/package-deps` by hand.
+3. **`desktop.repos` and `robot.repos` pin different `cora_common` commits**
    (`161ee79` from 2026-07-11 vs `c2d6518` from 2026-02-10). One workspace can
    only hold one, and the `package.xml` fixes only exist on top of `161ee79`.
    `cora_robot` should be moved to the newer `cora_common` (and get the same
    kind of `package.xml` fixes) so both use one version.
-5. **Old install scripts conflict with the Docker setup.** `cora_common/install.sh`
+4. **Old install scripts conflict with the Docker setup.** `cora_common/install.sh`
    and `cora_desktop/install.sh` run `pip install -r requirements.txt`, which
    installs CoDI *with* its dependencies: that can pull numpy 2.x (breaks ROS's
    Python modules, built against numpy 1.26) and `opencv-python` (bundles Qt,
    clashes with RViz/Gazebo). Don't run them; remove them or mark them as the
    old non-Docker setup. `requirements.txt` should also pin the CoDI commit.
-6. **`__pycache__` files are committed in `cora_common`**, so `git status`
+5. **`__pycache__` files are committed in `cora_common`**, so `git status`
    shows changed `.pyc` files after every run. Harmless; ignore them
    or restore with `git checkout -- '*.pyc'`. Real fix: `git rm --cached` them
    and add `__pycache__/` to `cora_common`'s `.gitignore`.
-7. **`cora_vision`** imports `cora_vision_msgs`, which no repo provides. The
+6. **`cora_vision`** imports `cora_vision_msgs`, which no repo provides. The
    vision node can't run (it isn't part of the simulation launch).
 
 ## Troubleshooting
