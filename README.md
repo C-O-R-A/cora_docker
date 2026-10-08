@@ -1,6 +1,6 @@
 # Cora development workspace
 
-Everything you need to build and run the Cora software (ROS 2 Jazzy, Gazebo,
+Everything you need to build and run the Cora software (ROS2 Jazzy, Gazebo,
 MoveIt 2) inside a Docker container. It works the same on every laptop,
 whatever Linux version it runs.
 
