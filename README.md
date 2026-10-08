@@ -19,7 +19,7 @@ Every command block says where to run it:
 
 | | What it is | Analogy | Created with |
 |---|---|---|---|
-| **Image** | A frozen snapshot with Ubuntu, ROS, Gazebo, MoveIt and all Cora dependencies installed. Read-only. | An installer / a recipe that's been cooked | `docker compose build` (Part 1, step 5) |
+| **Image** | A frozen snapshot with Ubuntu, ROS, Gazebo, MoveIt and all Cora dependencies installed. Read-only. | An installer / a recipe that's been cooked | `docker compose build` (Part 1, step 6) |
 | **Container** | A running instance of the image, where you actually work. | A program that's running | `docker compose up -d` (Part 2, step 1) |
 
 You build the image once (and again when dependencies change). You can create,
@@ -84,13 +84,34 @@ mkdir -p ~/dev/cora && cd ~/dev/cora
 # git clone <cora_ws repo> cora_ws    ← not in git yet; for now the folder is copied by hand
 ```
 
-### Step 5: Run the setup script
+### Step 5: Download the repos and switch to `fix/package-deps`
+
+🖥️ **HOST**
+
+This setup needs the `fix/package-deps` branch of `cora_common` and
+`cora_desktop`, **not** `main` (or the commit in `desktop.repos`). `main` misses
+the `package.xml` fixes and the image build fails at `rosdep install`. See
+[Local changes in cora_common and cora_desktop](#local-changes-in-cora_common-and-cora_desktop).
+
+```bash
+cd ~/dev/cora/cora_ws
+vcs import src < desktop.repos
+git -C src/cora_common switch fix/package-deps
+git -C src/cora_desktop switch fix/package-deps
+```
+
+> The branch must be pushed to the C-O-R-A repos on GitHub first. Until then it
+> only exists on the laptop where the fixes were made.
+
+### Step 6: Run the setup script
 
 🖥️ **HOST**
 
 ```bash
 ~/dev/cora/cora_ws/setup.sh
 ```
+
+It leaves the repos from step 5 (and their branch) alone.
 
 The script:
 
@@ -265,7 +286,7 @@ is recreated.
 ~/dev/cora/cora_ws/
 ├── README.md              ← this file
 ├── HOW_IT_WORKS.md        ← explanation of Docker, compose, vcstool, colcon, X11...
-├── setup.sh               ← one-time setup (Part 1, step 5)
+├── setup.sh               ← one-time setup (Part 1, step 6)
 ├── Dockerfile             ← recipe for the image
 ├── .dockerignore          ← which files Docker may see while building the image
 ├── compose.yaml           ← how to start the container (display, network, folders)
@@ -299,7 +320,7 @@ The `Dockerfile` starts from the official `osrf/ros:jazzy-desktop-full` image
 
 ## Manual setup (what setup.sh does)
 
-If you'd rather do Part 1, step 5 by hand, or want to see what the script
+If you'd rather do Part 1, step 6 by hand, or want to see what the script
 does. 🖥️ **HOST**, in `~/dev/cora/cora_ws`:
 
 ```bash
