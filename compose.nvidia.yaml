@@ -1,0 +1,20 @@
+# Optional override for laptops with an NVIDIA GPU (requires the NVIDIA driver
+# and the NVIDIA Container Toolkit on the host). Use together with compose.yaml:
+#   docker compose -f compose.yaml -f compose.nvidia.yaml up -d
+
+services:
+  dev:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+      # Hybrid-graphics laptops (Intel + NVIDIA, "PRIME"): render OpenGL on the
+      # NVIDIA GPU instead of the integrated one.
+      __NV_PRIME_RENDER_OFFLOAD: "1"
+      __GLX_VENDOR_LIBRARY_NAME: nvidia

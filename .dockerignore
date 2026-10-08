@@ -1,0 +1,8 @@
+# The build context only needs the package.xml files (for rosdep) and docker/.
+# The source code itself is bind-mounted at runtime, not copied into the image,
+# so editing code never requires rebuilding the image.
+*
+!docker/
+!src/**/package.xml
+!src/**/COLCON_IGNORE
+!src/**/AMENT_IGNORE

@@ -1,0 +1,55 @@
+# Starts the Cora development container. Works on any machine (Intel/AMD
+# graphics through Mesa; falls back to software rendering if needed).
+# For NVIDIA GPUs, add the override file:
+#   docker compose -f compose.yaml -f compose.nvidia.yaml up -d
+#
+# Run all docker compose commands on the host, in ~/dev/cora/cora_ws.
+# Machine-specific values (UID/GID, render group) come from .env; see README.
+
+name: cora
+
+services:
+  dev:
+    image: cora-dev:jazzy
+    build:
+      context: .
+      args:
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
+    container_name: cora-dev
+
+    # Share the host's network (ROS 2 discovery just works) and shared memory
+    # (faster DDS and X11 rendering).
+    network_mode: host
+    ipc: host
+
+    environment:
+      # Display: use the host's X server (XWayland on Wayland desktops).
+      DISPLAY: ${DISPLAY:?DISPLAY is not set; run this from a terminal in your desktop session}
+      XAUTHORITY: /tmp/.Xauthority
+      # ROS 2 discovery: LOCALHOST keeps your nodes from mixing with teammates'
+      # on the same Wi-Fi. Set to SUBNET in .env to talk to the real robot.
+      ROS_AUTOMATIC_DISCOVERY_RANGE: ${ROS_AUTOMATIC_DISCOVERY_RANGE:-LOCALHOST}
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+
+    volumes:
+      # The workspace: edit on the host, build/run in the container.
+      - .:/ros_ws
+      # X11 socket + your login session's X cookie. This replaces `xhost`:
+      # the container user has your UID and the cookie, so the X server lets it in.
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ${XAUTHORITY:-${HOME}/.Xauthority}:/tmp/.Xauthority:ro
+
+    # GPU render nodes (Intel/AMD via Mesa). The render group's GID differs
+    # per machine, so it comes from .env.
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      # Fallback "video" exists in the image, so a missing RENDER_GID only
+      # costs GPU acceleration instead of breaking startup.
+      - "${RENDER_GID:-video}"
+
+    # Keep the container running in the background; open shells with
+    # `docker compose exec dev bash`.
+    command: sleep infinity
+    init: true
