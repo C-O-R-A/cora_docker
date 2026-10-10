@@ -3,8 +3,8 @@
 Build and run the Cora software (ROS 2 Jazzy, Gazebo, MoveIt 2) inside a Docker
 container.
 
-- 🖥️ **HOST:** a normal terminal on your laptop. Prompt: `you@laptop:~$`.
-- 📦 **CONTAINER:** a terminal inside the container. Prompt: `cora@laptop:/ros_ws$`.
+- **HOST:** a normal terminal on your laptop. Prompt: `you@laptop:~$`.
+- **CONTAINER:** a terminal inside the container. Prompt: `cora@laptop:/ros_ws$`.
 
 For background on how it all works, see [HOW_IT_WORKS.md](HOW_IT_WORKS.md).
 
@@ -82,7 +82,7 @@ It checks the prerequisites, writes `.env` and builds the Docker image (first
 time: ~6 GB download, 5–10 minutes). If something is marked ✘, fix it and run
 it again.
 
-✅ It ends with `Setup complete`.
+It ends with `Setup complete`.
 
 ---
 
@@ -111,7 +111,7 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-✅ Ends with `Summary: N packages finished`. Rebuild after code changes.
+Ends with `Summary: N packages finished`. Rebuild after code changes.
 
 ### Step 3: Launch the simulation
 
@@ -121,7 +121,7 @@ source install/setup.bash
 ros2 launch cora_gazebo gazebo.launch.py
 ```
 
-✅ Gazebo opens with the Cora robot, then RViz with MoveIt.
+Gazebo opens with the Cora robot, then RViz with MoveIt.
 
 > Known issue: the CoDI node crashes about 30 seconds after launch. The rest of
 > the simulation keeps working.
