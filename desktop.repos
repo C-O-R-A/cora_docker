@@ -4,11 +4,6 @@
 # as a second copy of the same packages. The top-level cora_common below is the
 # only copy that gets built.
 repositories:
-  cora_common:
-    type: git
-    url: git@github.com:C-O-R-A/cora_common.git
-    # Same commit cora_desktop's submodule points to (2026-07-11).
-    version: main
   cora_desktop:
     type: git
     url: git@github.com:C-O-R-A/cora_desktop.git
