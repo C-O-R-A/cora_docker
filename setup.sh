@@ -130,7 +130,9 @@ bold "3/4 Downloading repos from $REPOS_FILE into src/"
 mkdir -p src
 # --skip-existing: never touch repos you already have (your branches and
 # uncommitted changes are safe). No --recursive: see README.
-vcs import --skip-existing --init-recursive src < "$REPOS_FILE"
+vcs import --skip-existing src < "$REPOS_FILE"
+echo "Updating git submodules..."
+git submodule update --init --recursive
 ok "Repos in src/: $(cd src && ls -d */ | tr -d / | tr '\n' ' ')"
 
 # --------------------------------------------------------------------------
