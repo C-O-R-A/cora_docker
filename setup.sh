@@ -7,7 +7,8 @@
 #
 # What it does:
 #   1. Checks the prerequisites and tells you what's missing.
-#   2. Writes .env with this laptop's settings (user ID, GPU group, NVIDIA).
+#   2. Writes .env with this laptop's settings (user ID, GPU group, NVIDIA,
+#      or the WSL override on Windows).
 #   3. Downloads the repos into src/ (repos that already exist are left alone).
 #   4. Builds the Docker image.
 # Safe to run again: it never deletes anything or overwrites your changes.
@@ -21,6 +22,10 @@ bold() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 ok()   { printf '  \033[32m✔\033[0m %s\n' "$*"; }
 warn() { printf '  \033[33m!\033[0m %s\n' "$*"; }
 bad()  { printf '  \033[31m✘\033[0m %s\n' "$*"; MISSING=1; }
+
+# Windows 11: running inside WSL2 (its kernel name contains "microsoft").
+WSL=0
+if grep -qi microsoft /proc/version 2>/dev/null; then WSL=1; fi
 
 # --------------------------------------------------------------------------
 bold "1/4 Checking prerequisites"
@@ -77,6 +82,26 @@ if grep -q 'git@github.com' "$REPOS_FILE"; then
   fi
 fi
 
+if [ "$WSL" -eq 1 ]; then
+  # Bind mounts from the Windows drives (/mnt/c, ...) are slow and every file
+  # appears to be owned by you with mode 777, which confuses git and colcon.
+  case "$(pwd)" in
+    /mnt/*) bad "The workspace is on a Windows drive ($(pwd)). Clone it inside WSL instead, e.g. ~/dev/cora/cora_ws" ;;
+    *)      ok "Workspace is inside the WSL filesystem" ;;
+  esac
+  if [ -S /mnt/wslg/.X11-unix/X0 ]; then
+    ok "WSLg (Linux windows on the Windows desktop)"
+  else
+    bad "WSLg is not available. In PowerShell, run: wsl --update   then: wsl --shutdown   and reopen Ubuntu."
+  fi
+  if [ ! -e /dev/dxg ]; then
+    warn "No /dev/dxg: WSL can't see the GPU. Update your GPU driver in Windows; until then graphics use (slow) software rendering."
+  fi
+  if [ "$(ps -p 1 -o comm= 2>/dev/null)" != systemd ]; then
+    warn "systemd is off in WSL, so Docker won't start by itself. Add '[boot]' and 'systemd=true' to /etc/wsl.conf, then in PowerShell: wsl --shutdown"
+  fi
+fi
+
 if [ -z "${DISPLAY:-}" ]; then
   warn "DISPLAY is not set. Setup works, but start the container from a desktop terminal (not SSH) or windows won't open."
 fi
@@ -95,6 +120,9 @@ if [ -f .env ]; then
   if ! grep -qx "USER_UID=$(id -u)" .env; then
     warn ".env has a different USER_UID than your user ($(id -u)). Files may end up owned by someone else."
   fi
+  if [ "$WSL" -eq 1 ] && ! grep -q compose.wsl.yaml .env; then
+    warn ".env doesn't enable compose.wsl.yaml; the container won't start in WSL. Delete .env and rerun setup.sh."
+  fi
 else
   RENDER_GID="$(getent group render | cut -d: -f3 || true)"
   {
@@ -104,14 +132,24 @@ else
     if [ -n "$RENDER_GID" ]; then echo "RENDER_GID=$RENDER_GID"; fi
   } > .env
   ok "User ID $(id -u), group ID $(id -g)"
-  if [ -n "$RENDER_GID" ]; then
+  if [ "$WSL" -eq 1 ]; then
+    # In WSL every GPU (NVIDIA included) goes through /dev/dxg; see compose.wsl.yaml.
+    {
+      echo "# Running in WSL2 (Windows): use the WSLg display and the /dev/dxg GPU."
+      echo "COMPOSE_FILE=compose.yaml:compose.wsl.yaml"
+    } >> .env
+    ok "WSL2 detected; enabled compose.wsl.yaml"
+  elif [ -n "$RENDER_GID" ]; then
     ok "GPU render group ID $RENDER_GID"
   else
     warn "No 'render' group on this machine; graphics may fall back to (slow) software rendering."
   fi
 
   # NVIDIA: only if Docker has the NVIDIA runtime (NVIDIA Container Toolkit).
-  if docker info 2>/dev/null | grep -qi nvidia; then
+  # Not in WSL: there NVIDIA GPUs already work through compose.wsl.yaml.
+  if [ "$WSL" -eq 1 ]; then
+    true
+  elif docker info 2>/dev/null | grep -qi nvidia; then
     {
       echo "# Docker supports NVIDIA here: always include the GPU override."
       echo "COMPOSE_FILE=compose.yaml:compose.nvidia.yaml"

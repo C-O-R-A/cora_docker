@@ -1,0 +1,32 @@
+# Override for Windows 11 (WSL2 + WSLg). setup.sh enables it automatically
+# when it runs inside WSL, by writing COMPOSE_FILE to .env. Manual use:
+#   docker compose -f compose.yaml -f compose.wsl.yaml up -d
+#
+# WSL2 has no /dev/dri and no X cookie. Instead:
+#   - windows go to WSLg's X server, whose socket lives in /mnt/wslg;
+#   - the GPU is /dev/dxg, and Mesa's "d3d12" driver renders through Windows'
+#     Direct3D 12 using the libraries in /usr/lib/wsl (any GPU vendor).
+# Don't combine this with compose.nvidia.yaml: in WSL, NVIDIA GPUs are used
+# through the same d3d12 path, and NVIDIA's Linux OpenGL driver isn't there.
+#
+# !override (Docker Compose 2.24.4 or newer) replaces the list from
+# compose.yaml instead of adding to it.
+
+services:
+  dev:
+    environment:
+      LD_LIBRARY_PATH: /usr/lib/wsl/lib
+      # Laptops with two GPUs: pick the one whose name contains this text,
+      # e.g. MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA in .env. Passed on only
+      # if it is set; otherwise Windows picks the GPU.
+      MESA_D3D12_DEFAULT_ADAPTER_NAME:
+      # XAUTHORITY from compose.yaml now points to a file that doesn't exist,
+      # which is fine: WSLg's X server doesn't ask for a cookie.
+
+    volumes: !override
+      - .:/ros_ws
+      - /mnt/wslg/.X11-unix:/tmp/.X11-unix
+      - /usr/lib/wsl:/usr/lib/wsl:ro
+
+    devices: !override
+      - /dev/dxg:/dev/dxg
