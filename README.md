@@ -99,11 +99,19 @@ source /opt/ros/jazzy/setup.bash
 
 # ROS packages that the code needs (MoveIt, ros2_control, ...), read from package.xml
 rosdep install --from-paths src --ignore-src -y --rosdistro jazzy
+```
 
-# Python libraries for CoDI
+### A5. Install CoDI from GitHub
+
+CoDI is not a ROS package, so `rosdep` doesn't install it and it isn't in
+`desktop.repos`. Install it with `pip`, straight from its GitHub repository
+([C-O-R-A/CoDI](https://github.com/C-O-R-A/CoDI)), at a fixed commit:
+
+```bash
+# Python libraries that CoDI needs
 sudo apt install -y python3-pip python3-numpy python3-opencv python3-msgpack python3-yaml
 
-# CoDI itself (not a ROS package, so rosdep can't install it)
+# CoDI itself, from GitHub (plus a newer OpenCV, see below)
 pip install --user --no-deps --break-system-packages \
   "opencv-python-headless==4.10.0.84" \
   "git+https://github.com/C-O-R-A/CoDI.git@b475de33da0788e36580edb394c627d7ac8c9a48"
@@ -123,7 +131,7 @@ About the `pip` line:
 - The CoDI commit must match the `cora_common` version. See the comment in the
   `Dockerfile`, and update both together.
 
-### A5. Load ROS automatically in every terminal
+### A6. Load ROS automatically in every terminal
 
 ```bash
 cat >> ~/.bashrc <<'EOF'
@@ -421,7 +429,7 @@ must also use the same `ROS_DOMAIN_ID` (default `0`).
 | `rosdep` says a package can't be found | Check you are on the `fix/package-deps` branches (`git -C src/cora_desktop branch --show-current`). |
 | `ros2: command not found` | Open a new terminal, or run `source /opt/ros/jazzy/setup.bash`. |
 | `Package 'cora_gazebo' not found` | Build first, then run `source install/setup.bash`. |
-| `No module named 'codi'` | Run the `pip install` line from [A4](#a4-install-the-dependencies) again. |
+| `No module named 'codi'` | Run the `pip install` line from [A5](#a5-install-codi-from-github) again. |
 | No windows open (WSL) | In PowerShell: `wsl --update`, then `wsl --shutdown`, and reopen Ubuntu. |
 | Gazebo is very slow (WSL) | Update the GPU driver in Windows. `glxinfo -B` (from `mesa-utils`) should show `D3D12`, not `llvmpipe`. |
 | Can't see the robot's nodes | See [Working with the real robot](#working-with-the-real-robot). |
