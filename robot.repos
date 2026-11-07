@@ -1,9 +1,10 @@
 # Real-robot packages (ODrive hardware interface etc.).
 # Usage (host, in ~/dev/cora/cora_ws):  vcs import src < robot.repos
 # Pins cora_common to the commit cora_robot's submodule points to (2026-02-10),
-# which is OLDER than the one in desktop.repos. Importing both files into one
-# workspace makes the last import win for cora_common, so pick one per
-# workspace until the cora_common versions are aligned.
+# which is OLDER than the one cora_desktop's submodule pins (161ee79). Don't
+# fetch cora_robot's submodule (no --recursive) and don't import desktop.repos
+# into the same workspace: either one adds a second cora_common copy. Use a
+# separate workspace until the cora_common versions are aligned.
 repositories:
   cora_common:
     type: git

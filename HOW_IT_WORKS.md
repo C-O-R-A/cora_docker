@@ -30,8 +30,9 @@ Contents:
 ## 1. The problem this solves
 
 ROS 2 Jazzy officially supports exactly one OS, **Ubuntu 24.04**. Teammates
-run different Ubuntu versions (this laptop runs 26.04), so installing ROS
-directly on each laptop gives everyone a slightly different, fragile setup.
+run different Ubuntu versions (this laptop runs 26.04), and on those ROS 2
+Jazzy can't be installed directly. Hand-made workarounds give everyone a
+slightly different, fragile setup.
 
 The old setup used a container, which was a good start, but it was built by
 hand:
@@ -47,6 +48,34 @@ hand:
 
 The new setup turns each of those manual steps into a file that's in version
 control: anyone gets the same environment by running the same commands.
+
+### Native or Docker?
+
+Docker is only needed when your laptop doesn't run Ubuntu 24.04. The README
+offers three setups:
+
+| Laptop | Setup | Where ROS 2 runs |
+|---|---|---|
+| Ubuntu 24.04 | Native (README part A) | Directly on the laptop, installed with `apt` |
+| Windows 11 | WSL2 + native (README parts B and A) | In an Ubuntu 24.04 that WSL2 runs inside Windows |
+| Other Ubuntu, e.g. 26.04 | Docker (README part C) | In an Ubuntu 24.04 container |
+
+All three use the same workspace layout, the same `.repos` files, the same
+`rosdep` dependencies and the same pinned CoDI version, so the code builds the
+same way everywhere. The `Dockerfile` is also the reference list of
+everything a native install needs: README step A4 runs its steps by hand.
+
+What Docker adds is isolation. Everything ROS needs lives in the image, so
+it can't conflict with your system and is identical on every laptop. A native
+install is simpler and a bit faster, but it depends on everyone following the
+same steps.
+
+**WSL2** (Windows Subsystem for Linux) is a lightweight virtual machine with a
+real Linux kernel, managed by Windows. **WSLg** is its built-in display server:
+Linux GUI programs like Gazebo and RViz open as normal Windows windows, and
+graphics go to the Windows GPU driver through `/dev/dxg` (Mesa's `d3d12`
+driver). Most of this document is about the Docker setup. Sections 11–15
+(workspaces, dependencies, `.repos` files and pinning) apply to all three.
 
 ---
 
@@ -582,14 +611,18 @@ git repos:
 
 ```
 /ros_ws/src/
-├── cora_common/                 ← git repo
-│   ├── cora_bringup/            ← package
-│   ├── cora_codi/               ← package
-│   ├── cora_description/        ← package
-│   └── ...
-└── cora_desktop/                ← git repo
-    └── cora_gazebo/             ← package
+└── cora_desktop/                ← git repo (from desktop.repos)
+    ├── cora_gazebo/             ← package
+    └── cora_common/             ← git submodule of cora_desktop
+        ├── cora_bringup/        ← package
+        ├── cora_codi/           ← package
+        ├── cora_description/    ← package
+        └── ...
 ```
+
+colcon searches all of `src/`, including subfolders, so packages inside the
+submodule are found like any other. (In the native setup the workspace is
+`~/dev/cora/cora_ws` instead of `/ros_ws`. The layout is the same.)
 
 ### colcon build
 
@@ -642,9 +675,11 @@ Because the overlay wins, the simulation ran the **July** code from the desktop
 copy, not the September code you might have been editing in
 `cora_common_ws`. Nothing warned about it. That's called **shadowing**.
 
-Now there's one workspace with exactly one `cora_common`. colcon would refuse to
-build two packages with the same name in one workspace, so this can't silently
-happen again.
+Now there's one workspace with exactly one `cora_common` (the submodule inside
+`cora_desktop`). colcon would refuse to build two packages with the same name
+in one workspace, so this can't silently happen again. That's also why
+`desktop.repos` and `robot.repos` must not be imported into the same
+workspace: `robot.repos` brings its own `cora_common`.
 
 ---
 
@@ -739,43 +774,59 @@ modules, compiled against numpy 1.26 from apt, can break. So:
 A YAML list of git repositories: where each comes from, which version, and
 which folder it goes in:
 
+`robot.repos`, for example:
+
 ```yaml
 repositories:
   cora_common:                                       # → src/cora_common
     type: git
     url: git@github.com:C-O-R-A/cora_common.git
-    version: 161ee79e45d37657d1802d3d5b9b96b34890b867   # an exact commit
-  cora_desktop:                                      # → src/cora_desktop
+    version: c2d65187bf815c8d27997db57af19b9af5ff4967   # an exact commit
+  cora_robot:                                        # → src/cora_robot
     type: git
-    url: git@github.com:C-O-R-A/cora_desktop.git
+    url: git@github.com:C-O-R-A/cora_robot.git
     version: main                                    # a branch
 ```
 
-`vcs import src < desktop.repos` clones each one into `src/` and checks out the
+`vcs import src < robot.repos` clones each one into `src/` and checks out the
 given version. Other useful commands: `vcs status src`, `vcs pull src`,
 `vcs export src --exact`.
 
-### Why not git submodules
+### Submodules: how cora_common gets into the desktop workspace
 
 A **submodule** is a repo embedded inside another repo, pinned to a commit.
-`cora_desktop` and `cora_robot` each embed `cora_common` that way. The problem
-is that each parent pins its own version, so you end up with several
-`cora_common` copies at different commits (and the shadowing problem above).
+`cora_desktop` and `cora_robot` each embed `cora_common` that way.
 
-With `.repos` files, the code repos stay independent and side by side, and one
-file decides which versions go together. Most ROS 2 projects work this way
-(MoveIt, Nav2, ...).
+`desktop.repos` lists only `cora_desktop`. Its `cora_common` comes from the
+submodule, at the commit `cora_desktop` pins, after a second command:
 
-The submodules still exist in `cora_desktop` and `cora_robot`. We just don't
-download them: `vcs import` without `--recursive` leaves the submodule folder
-empty. Removing the submodules from those repos is a separate team decision.
+```bash
+vcs import src < desktop.repos                               # → src/cora_desktop
+git -C src/cora_desktop submodule update --init --recursive   # → src/cora_desktop/cora_common
+```
+
+`vcs import` is never run with `--recursive`. For `robot.repos`, that would
+also fetch `cora_robot`'s submodule, a second `cora_common` next to the one
+the file already lists (and the shadowing problem above). `setup.sh` runs the
+submodule command only for `cora_desktop`, and only for submodules that are
+still empty.
+
+The downside of submodules: each parent repo pins its own `cora_common`
+version, so the desktop and robot workspaces run different `cora_common`
+code. Aligning them is a team decision.
 
 ### Detached HEAD
 
-`cora_common` is pinned to a commit, so `git status` there says
-`HEAD detached at 161ee79`. That just means "you're on a specific commit, not
-on a branch". Reading and building is fine. Before making changes, create a
-branch (`git switch -c my-branch`) so your commits have a name to live on.
+A submodule is checked out at a commit, not a branch, so `git status` in
+`src/cora_desktop/cora_common` says `HEAD detached at 161ee79`. The same
+happens in `src/cora_common` from `robot.repos`. That just means "you're on a
+specific commit, not on a branch". Reading and building is fine. Before making
+changes, switch to a branch (`git switch fix/package-deps`, or
+`git switch -c my-branch` for a new one) so your commits have a name to live on.
+
+Careful: running `git submodule update` again moves the submodule back to the
+pinned commit and off your branch. Your commits are kept, but you have to
+switch back to the branch.
 
 ---
 
@@ -785,7 +836,7 @@ branch (`git switch -c my-branch`) so your commits have a name to live on.
 
 | What | Pinned to | Where | Why |
 |---|---|---|---|
-| `cora_common` (desktop) | commit `161ee79` (2026-07-11) | `desktop.repos` | The version the simulation already ran with |
+| `cora_common` (desktop) | commit `161ee79` (2026-07-11) | the submodule pointer in `cora_desktop` | The version the simulation already ran with |
 | `cora_common` (robot) | commit `c2d6518` (2026-02-10) | `robot.repos` | What `cora_robot`'s submodule points to |
 | CoDI | commit `b475de3` (2026-06-13) | `CODI_REF` in `Dockerfile` | Last CoDI version with the API that `cora_common` 161ee79 uses |
 | OpenCV (pip) | `4.10.0.84` | `Dockerfile` | Satisfies CoDI's needs, works with numpy 1.26 |
@@ -812,8 +863,12 @@ message when something's missing:
 1/4 Checking prerequisites    docker, docker group, compose, git, vcs, GitHub SSH
 2/4 Machine settings (.env)   UID/GID, render group, NVIDIA (if Docker has the nvidia runtime)
 3/4 Downloading repos         vcs import --skip-existing src < desktop.repos
+                              + cora_desktop's submodules (only if still empty)
 4/4 Building the image        docker compose build
 ```
+
+`setup.sh` is for the Docker setup only. The native setup (README part A) runs
+the same steps by hand.
 
 Design choices worth knowing:
 
