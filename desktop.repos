@@ -1,8 +1,8 @@
 # Desktop / simulation development.
-# Usage (host, in ~/dev/cora/cora_ws):  vcs import src < desktop.repos
-# Do NOT pass --recursive: cora_desktop's cora_common submodule would be cloned
-# as a second copy of the same packages. The top-level cora_common below is the
-# only copy that gets built.
+# Usage (host, in ~/dev/cora/cora_ws):
+#   mkdir -p src && vcs import src < desktop.repos
+#   git -C src/cora_desktop submodule update --init --recursive
+# cora_common comes in as a submodule of cora_desktop (src/cora_desktop/cora_common).
 repositories:
   cora_desktop:
     type: git

@@ -129,10 +129,16 @@ bold "3/4 Downloading repos from $REPOS_FILE into src/"
 # --------------------------------------------------------------------------
 mkdir -p src
 # --skip-existing: never touch repos you already have (your branches and
-# uncommitted changes are safe). No --recursive: see README.
+# uncommitted changes are safe).
 vcs import --skip-existing src < "$REPOS_FILE"
-echo "Updating git submodules..."
-git submodule update --init --recursive
+# Initialise submodules (e.g. cora_desktop/cora_common) inside each repo, but
+# only where they are not checked out yet, so branches you switched to stay.
+for repo in src/*/; do
+  if [ -f "$repo/.gitmodules" ] && git -C "$repo" submodule status --recursive | grep -q '^-'; then
+    echo "Initialising submodules in $repo"
+    git -C "$repo" submodule update --init --recursive
+  fi
+done
 ok "Repos in src/: $(cd src && ls -d */ | tr -d / | tr '\n' ' ')"
 
 # --------------------------------------------------------------------------

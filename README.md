@@ -65,10 +65,16 @@ build fails.
 
 ```bash
 cd ~/dev/cora/cora_ws
+mkdir -p src
 vcs import src < desktop.repos
-git -C src/cora_common switch fix/package-deps
 git -C src/cora_desktop switch fix/package-deps
+git -C src/cora_desktop submodule update --init --recursive
+git -C src/cora_desktop/cora_common switch fix/package-deps
 ```
+
+`cora_common` is a git submodule inside `cora_desktop`
+(`src/cora_desktop/cora_common`), not a separate repo in `src/`. Run
+`vcs import` only once: running it again switches the repos back to `main`.
 
 ### Step 6: Run the setup script
 
@@ -101,6 +107,29 @@ docker compose exec dev bash
 ```
 
 Run `docker compose up -d` again after every login or reboot.
+
+You're inside the container when the prompt starts with `cora@` and the folder
+is `/ros_ws`. Check with `ls /.dockerenv` (exists only in the container).
+
+> `groups: cannot find name for group ID …` when the shell opens is harmless:
+> it is your laptop's GPU group, which has no name inside the container.
+
+### Step 1b (optional): Open the code in VS Code
+
+🖥️ **HOST.** The container must be running (Step 1).
+
+First time:
+
+1. Install the **Dev Containers** extension (`ms-vscode-remote.remote-containers`).
+2. Open the **Remote Explorer** (left sidebar), pick **Dev Containers** at the top.
+3. Under **Other Containers**, right-click **cora** → **Attach in New Window**.
+4. In the new window: **Open Folder** → `/ros_ws` → **OK**.
+
+The bottom-left corner shows `Container cora-dev:jazzy`, and **Terminal → New
+Terminal** opens a shell inside the container (you can close the
+`docker compose exec` terminal).
+
+Next times: **File → Open Recent** (Ctrl+R) → `/ros_ws [Container cora-dev…]`.
 
 ### Step 2: Build
 
