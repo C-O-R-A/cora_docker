@@ -80,6 +80,7 @@ git clone git@github.com:C-O-R-A/cora_docker.git cora_ws
 cd cora_ws
 
 # Download cora_desktop into src/ and switch to the fixed branch
+mkdir -p src
 vcs import src < desktop.repos
 git -C src/cora_desktop switch fix/package-deps
 
@@ -303,6 +304,7 @@ mkdir -p ~/dev/cora && cd ~/dev/cora
 git clone git@github.com:C-O-R-A/cora_docker.git cora_ws
 cd cora_ws
 
+mkdir -p src
 vcs import src < desktop.repos
 git -C src/cora_desktop switch fix/package-deps
 git -C src/cora_desktop submodule update --init --recursive
